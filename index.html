@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BOT CONTROL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #080c10;
+    --panel:     #0d1117;
+    --border:    #1c2a38;
+    --accent:    #00e5ff;
+    --accent2:   #ff6b35;
+    --green:     #39ff14;
+    --red:       #ff2244;
+    --yellow:    #ffd700;
+    --text:      #c8d8e8;
+    --text-dim:  #4a6070;
+    --glow:      0 0 12px rgba(0,229,255,.45);
+    --glow2:     0 0 12px rgba(255,107,53,.45);
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-head: 'Orbitron', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    height: 100vh;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: 52px 1fr;
+    grid-template-columns: 220px 1fr 300px;
+  }
+
+  /* scanline overlay */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 3px,
+      rgba(0,0,0,.06) 3px,
+      rgba(0,0,0,.06) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────────────────── */
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+
+  .logo {
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: var(--glow);
+  }
+
+  .logo span { color: var(--accent2); text-shadow: var(--glow2); }
+
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-size: 11px;
+    color: var(--text-dim);
+    transition: border-color .2s;
+  }
+  .stat-pill b { color: var(--text); font-weight: normal; }
+  .stat-pill .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    animation: pulse 2s infinite;
+  }
+  .stat-pill.online .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  .secret-area {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .secret-area label { color: var(--text-dim); font-size: 11px; letter-spacing: 1px; }
+  .secret-area input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    width: 160px;
+    outline: none;
+  }
+  .secret-area input:focus { border-color: var(--accent); box-shadow: var(--glow); }
+
+  .btn-connect {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-head);
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 5px 14px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all .2s;
+  }
+  .btn-connect:hover { background: var(--accent); color: var(--bg); box-shadow: var(--glow); }
+
+  /* ── LEFT SIDEBAR ────────────────────────────────────────────────── */
+  .sidebar {
+    grid-row: 2;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-section { padding: 14px 0 6px; }
+  .sidebar-label {
+    font-family: var(--font-head);
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    padding: 0 16px 8px;
+    text-transform: uppercase;
+  }
+
+  .file-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all .15s;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  .file-item:hover { background: rgba(0,229,255,.05); color: var(--text); }
+  .file-item.active {
+    border-left-color: var(--accent);
+    background: rgba(0,229,255,.08);
+    color: var(--accent);
+  }
+  .file-item .icon { font-size: 10px; width: 14px; text-align: center; }
+
+  .cog-list { flex: 1; overflow-y: auto; }
+  .cog-entry {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-bottom: 1px solid rgba(255,255,255,.03);
+  }
+  .cog-entry .cog-name { color: var(--text); }
+  .cog-status {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 5px var(--green);
+    flex-shrink: 0;
+  }
+
+  /* ── MAIN EDITOR AREA ────────────────────────────────────────────── */
+  .editor-area {
+    grid-row: 2;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .editor-toolbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+
+  .editor-filename {
+    font-family: var(--font-head);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--accent);
+  }
+
+  .editor-filename .unsaved { color: var(--accent2); margin-left: 6px; }
+
+  .spacer { flex: 1; }
+
+  .btn {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 14px;
+    cursor: pointer;
+    border-radius: 2px;
+    letter-spacing: 1px;
+    transition: all .15s;
+  }
+  .btn:hover { border-color: var(--text); color: var(--text); }
+  .btn.primary {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .btn.primary:hover { background: var(--accent); color: var(--bg); box-shadow: var(--glow); }
+  .btn.danger { border-color: var(--red); color: var(--red); }
+  .btn.danger:hover { background: var(--red); color: #fff; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    padding: 10px 20px;
+    border-radius: 2px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    z-index: 10000;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: all .3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.ok { background: rgba(57,255,20,.15); border: 1px solid var(--green); color: var(--green); }
+  .toast.err { background: rgba(255,34,68,.15); border: 1px solid var(--red); color: var(--red); }
+
+  #monaco-container {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--text-dim);
+  }
+  .empty-state .big { font-family: var(--font-head); font-size: 28px; color: var(--border); letter-spacing: 6px; }
+  .empty-state p { font-size: 12px; letter-spacing: 2px; }
+
+  /* ── RIGHT PANEL (logs) ──────────────────────────────────────────── */
+  .log-panel {
+    grid-row: 2;
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  .log-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .log-header h3 {
+    font-family: var(--font-head);
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+  }
+  .log-header .live-badge {
+    font-size: 9px; letter-spacing: 2px;
+    color: var(--green);
+    border: 1px solid var(--green);
+    padding: 1px 6px; border-radius: 2px;
+    animation: blink 1.5s step-end infinite;
+  }
+  .btn-clear-log {
+    margin-left: auto;
+    background: none; border: none;
+    color: var(--text-dim); cursor: pointer; font-size: 11px;
+    font-family: var(--font-mono);
+    transition: color .15s;
+  }
+  .btn-clear-log:hover { color: var(--red); }
+
+  #log-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px;
+    font-size: 11px;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+  #log-output .log-line { display: block; }
+  #log-output .log-line.err { color: var(--red); }
+  #log-output .log-line.warn { color: var(--yellow); }
+  #log-output .log-line.info { color: var(--text-dim); }
+  #log-output .log-line.ok { color: var(--green); }
+
+  /* scrollbars */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">BOT<span>CTRL</span></div>
+  <div class="stat-pill" id="pill-status">
+    <div class="dot"></div>
+    <span>connecting</span>
+  </div>
+  <div class="stat-pill" id="pill-latency">
+    <span>PING</span>&nbsp;<b id="latency-val">—</b>
+  </div>
+  <div class="stat-pill" id="pill-guilds">
+    <span>GUILDS</span>&nbsp;<b id="guilds-val">—</b>
+  </div>
+  <div class="secret-area">
+    <label>SECRET</label>
+    <input type="password" id="secret-input" placeholder="dashboard secret" value="changeme"/>
+    <button class="btn-connect" onclick="connect()">CONNECT</button>
+  </div>
+</header>
+
+<!-- ── LEFT SIDEBAR ────────────────────────────────────────────────────────── -->
+<nav class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Files</div>
+    <div id="file-list"></div>
+  </div>
+  <div class="sidebar-section" style="flex:1;display:flex;flex-direction:column;min-height:0">
+    <div class="sidebar-label">Loaded Cogs</div>
+    <div class="cog-list" id="cog-list">
+      <div class="cog-entry" style="color:var(--text-dim);font-size:11px;padding:12px 16px">not connected</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── EDITOR ────────────────────────────────────────────────────────────────  -->
+<main class="editor-area">
+  <div class="editor-toolbar">
+    <div class="editor-filename" id="editor-filename">
+      <span id="editor-fname">no file open</span>
+      <span class="unsaved" id="unsaved-marker" style="display:none">●</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" onclick="reloadCog()" id="btn-reload-cog" style="display:none">↺ RELOAD COG</button>
+    <button class="btn primary" onclick="saveFile()" id="btn-save" disabled>⬆ SAVE &amp; APPLY</button>
+  </div>
+  <div id="monaco-container">
+    <div class="empty-state" id="empty-state">
+      <div class="big">&#9670;</div>
+      <p>SELECT A FILE TO EDIT</p>
+    </div>
+  </div>
+</main>
+
+<!-- ── LOG PANEL ─────────────────────────────────────────────────────────────  -->
+<aside class="log-panel">
+  <div class="log-header">
+    <h3>LIVE LOGS</h3>
+    <span class="live-badge">LIVE</span>
+    <button class="btn-clear-log" onclick="clearLog()">CLEAR</button>
+  </div>
+  <div id="log-output"></div>
+</aside>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Monaco loader -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let editor = null;
+let currentFile = null;
+let isDirty = false;
+let secret = () => document.getElementById('secret-input').value;
+let logLines = [];
+
+// ─── Monaco init ──────────────────────────────────────────────────────────────
+require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+require(['vs/editor/editor.main'], function () {
+  monaco.editor.defineTheme('cyber', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'comment',   foreground: '3a5060', fontStyle: 'italic' },
+      { token: 'keyword',   foreground: '00e5ff' },
+      { token: 'string',    foreground: 'ff6b35' },
+      { token: 'number',    foreground: 'ffd700' },
+      { token: 'type',      foreground: '39ff14' },
+      { token: 'function',  foreground: 'c0e8ff' },
+    ],
+    colors: {
+      'editor.background':           '#080c10',
+      'editor.foreground':           '#c8d8e8',
+      'editorLineNumber.foreground': '#1c2a38',
+      'editorLineNumber.activeForeground': '#00e5ff',
+      'editor.lineHighlightBackground': '#0d1520',
+      'editorCursor.foreground':     '#00e5ff',
+      'editor.selectionBackground':  '#0d3040',
+      'editorIndentGuide.background':'#1c2a38',
+      'editorWidget.background':     '#0d1117',
+      'input.background':            '#080c10',
+    }
+  });
+
+  editor = monaco.editor.create(document.getElementById('monaco-container'), {
+    value: '',
+    language: 'python',
+    theme: 'cyber',
+    fontSize: 13,
+    fontFamily: "'Share Tech Mono', monospace",
+    lineHeight: 20,
+    minimap: { enabled: true },
+    scrollBeyondLastLine: false,
+    renderWhitespace: 'boundary',
+    bracketPairColorization: { enabled: true },
+    padding: { top: 16 },
+    smoothScrolling: true,
+  });
+
+  editor.onDidChangeModelContent(() => {
+    if (!isDirty && currentFile) {
+      isDirty = true;
+      document.getElementById('unsaved-marker').style.display = '';
+      document.getElementById('btn-save').disabled = false;
+    }
+  });
+
+  // Hide empty state once editor has content
+  document.getElementById('empty-state').style.display = 'none';
+  // Restore empty state if no file
+  showEmptyState();
+});
+
+function showEmptyState() {
+  const es = document.getElementById('empty-state');
+  if (!currentFile) {
+    if (editor) {
+      document.getElementById('monaco-container').style.position = 'relative';
+      es.style.display = 'flex';
+      // editor behind empty state
+      editor.getDomNode().style.display = 'none';
+    } else {
+      es.style.display = 'flex';
+    }
+  } else {
+    es.style.display = 'none';
+    if (editor) editor.getDomNode().style.display = '';
+  }
+}
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'x-dashboard-secret': secret(),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) { showToast('Invalid secret', 'err'); throw new Error('401'); }
+  return res.json();
+}
+
+// ─── Connect / status ─────────────────────────────────────────────────────────
+async function connect() {
+  try {
+    const data = await api('GET', '/api/status');
+    // Status pill
+    const pill = document.getElementById('pill-status');
+    pill.classList.add('online');
+    pill.querySelector('span').textContent = data.user;
+    document.getElementById('latency-val').textContent = data.latency_ms + 'ms';
+    document.getElementById('guilds-val').textContent = data.guild_count;
+
+    // Cog list
+    const cogList = document.getElementById('cog-list');
+    cogList.innerHTML = data.cogs.map(c => `
+      <div class="cog-entry">
+        <span class="cog-name">${c}</span>
+        <div class="cog-status"></div>
+      </div>
+    `).join('');
+
+    // File list
+    await loadFileList();
+    showToast('Connected', 'ok');
+
+    // Start polling
+    startPolling();
+  } catch(e) {
+    if (e.message !== '401') showToast('Connection failed', 'err');
+  }
+}
+
+let pollTimer = null;
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(async () => {
+    try {
+      const data = await api('GET', '/api/status');
+      document.getElementById('latency-val').textContent = data.latency_ms + 'ms';
+      document.getElementById('guilds-val').textContent = data.guild_count;
+    } catch(_) {}
+    fetchLogs();
+  }, 4000);
+  fetchLogs();
+}
+
+// ─── File list ────────────────────────────────────────────────────────────────
+async function loadFileList() {
+  const data = await api('GET', '/api/files');
+  const container = document.getElementById('file-list');
+  container.innerHTML = data.files.map(f => {
+    const name = f.split('/').pop();
+    const icon = f.startsWith('cogs/') ? '⚙' : '⚡';
+    return `<div class="file-item" data-path="${f}" onclick="openFile('${f}')">
+      <span class="icon">${icon}</span>${name}
+    </div>`;
+  }).join('');
+}
+
+async function openFile(path) {
+  if (isDirty) {
+    if (!confirm('Unsaved changes will be lost. Continue?')) return;
+  }
+  const data = await api('GET', '/api/file?path=' + encodeURIComponent(path));
+  currentFile = path;
+  isDirty = false;
+  document.getElementById('editor-fname').textContent = path;
+  document.getElementById('unsaved-marker').style.display = 'none';
+  document.getElementById('btn-save').disabled = true;
+  const isCog = path.startsWith('cogs/') && path.endsWith('.py');
+  document.getElementById('btn-reload-cog').style.display = isCog ? '' : 'none';
+
+  if (editor) {
+    editor.getDomNode().style.display = '';
+    document.getElementById('empty-state').style.display = 'none';
+    editor.setValue(data.content);
+    editor.setScrollPosition({ scrollTop: 0 });
+  }
+
+  // Highlight active
+  document.querySelectorAll('.file-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.path === path);
+  });
+}
+
+// ─── Save ─────────────────────────────────────────────────────────────────────
+async function saveFile() {
+  if (!currentFile || !editor) return;
+  try {
+    const data = await api('POST', '/api/file', {
+      path: currentFile,
+      content: editor.getValue(),
+    });
+    isDirty = false;
+    document.getElementById('unsaved-marker').style.display = 'none';
+    document.getElementById('btn-save').disabled = true;
+    showToast(data.reload, 'ok');
+    // Refresh cog list
+    const status = await api('GET', '/api/status');
+    const cogList = document.getElementById('cog-list');
+    cogList.innerHTML = status.cogs.map(c => `
+      <div class="cog-entry">
+        <span class="cog-name">${c}</span>
+        <div class="cog-status"></div>
+      </div>
+    `).join('');
+  } catch(e) {
+    showToast('Save failed: ' + e.message, 'err');
+  }
+}
+
+// ─── Reload cog ───────────────────────────────────────────────────────────────
+async function reloadCog() {
+  if (!currentFile) return;
+  const stem = currentFile.replace('cogs/', '').replace('.py', '');
+  const ext = 'cogs.' + stem;
+  try {
+    const data = await api('POST', '/api/reload-cog', { extension: ext });
+    showToast(data.detail, 'ok');
+  } catch(e) {
+    showToast('Reload failed', 'err');
+  }
+}
+
+// ─── Logs ─────────────────────────────────────────────────────────────────────
+async function fetchLogs() {
+  try {
+    const data = await api('GET', '/api/logs?lines=300');
+    const el = document.getElementById('log-output');
+    const wasAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    el.innerHTML = data.lines.map(line => {
+      let cls = 'info';
+      if (/ERROR|EXCEPTION|Traceback/i.test(line)) cls = 'err';
+      else if (/WARNING/i.test(line)) cls = 'warn';
+      else if (/loaded|ready|started|reloaded|connected/i.test(line)) cls = 'ok';
+      return `<span class="log-line ${cls}">${escHtml(line)}</span>`;
+    }).join('\n');
+    if (wasAtBottom) el.scrollTop = el.scrollHeight;
+  } catch(_) {}
+}
+
+function clearLog() {
+  document.getElementById('log-output').innerHTML = '';
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Keyboard shortcut ────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveFile();
+  }
+});
+</script>
+</body>
+</html>
