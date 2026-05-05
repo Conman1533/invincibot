@@ -93,14 +93,15 @@ class Activity(commands.Cog):
         from utils import add_unb_money
         payout_channel = self.bot.get_channel(config.PAYOUT_CHANNEL_ID)
         if winners:
-            paid_count = 0
+            paid_users = []
             for row in winners:
                 if await add_unb_money(self.bot, row['user_id'], config.ACTIVITY_WINNER_REWARD):
-                    paid_count += 1
+                    paid_users.append(row['user_id'])
                     log.info("Awarded %s to user %s via API", config.ACTIVITY_WINNER_REWARD, row["user_id"])
-            if payout_channel and paid_count > 0:
+            if payout_channel and paid_users:
+                mentions = " ".join(f"<@{uid}>" for uid in paid_users)
                 try:
-                    await payout_channel.send(f"🎉 Midnight reset complete! Rewarded {paid_count} top active user(s) with {config.ACTIVITY_WINNER_REWARD} coins each.")
+                    await payout_channel.send(f"🎉 Midnight reset complete! Rewarded {mentions} with {config.ACTIVITY_WINNER_REWARD} coins each.")
                 except discord.Forbidden:
                     pass
                 

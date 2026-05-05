@@ -167,17 +167,18 @@ class Reporting(commands.Cog):
             rows = await cur.fetchall()
         from utils import add_unb_money
         payout_channel = self.bot.get_channel(config.PAYOUT_CHANNEL_ID)
-        paid_count = 0
+        paid_users = []
         for row in rows:
             if await add_unb_money(self.bot, row['user_id'], config.BOUNTY_AMOUNT):
-                paid_count += 1
+                paid_users.append(row['user_id'])
                 
-        if payout_channel and paid_count > 0:
+        if payout_channel and paid_users:
+            mentions = " ".join(f"<@{uid}>" for uid in paid_users)
             try:
-                await payout_channel.send(f"✅ Paid {config.BOUNTY_AMOUNT} coins to {paid_count} reporter(s) for report ID {report_id}.")
+                await payout_channel.send(f"✅ Paid {config.BOUNTY_AMOUNT} coins to {mentions}.")
             except discord.Forbidden:
                 pass
-        log.info("Report %s resolved; paid %s reporters via API.", report_id, paid_count)
+        log.info("Report %s resolved; paid %s reporters via API.", report_id, len(paid_users))
         mod_channel = self.bot.get_channel(config.MOD_CHANNEL_ID)
         if mod_channel:
             try:
