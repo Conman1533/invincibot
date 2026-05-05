@@ -39,7 +39,7 @@ ALLOWED_CHANNEL_IDS: set[int] = {
 #  REPORTING MODULE
 # ─────────────────────────────────────────────────────────────────────────────
 
-REPORT_EMOJI_NAME: str = "🐀"   # name of your custom :report: emoji
+REPORT_EMOJI_NAME: str = "report"   # name of your custom :report: emoji
 RESOLVE_EMOJI: str     = "✅"
 BOUNTY_AMOUNT: int     = 100        # currency awarded per reporter on resolution
 
