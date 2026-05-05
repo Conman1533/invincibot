@@ -236,7 +236,7 @@ class Reporting(commands.Cog):
         if payout_channel and paid_users:
             mentions = " ".join(f"<@{uid}>" for uid in paid_users)
             try:
-                await payout_channel.send(f"✅ Paid {config.BOUNTY_AMOUNT} coins to {mentions}.")
+                await payout_channel.send(f"✅ Paid {config.BOUNTY_AMOUNT} coins to {mentions}. Make sure to deposit your coins with $dep all")
             except discord.Forbidden:
                 pass
         log.info("Report %s resolved; paid %s reporters via API.", report_id, len(paid_users))
