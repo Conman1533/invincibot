@@ -128,6 +128,11 @@ class Reporting(commands.Cog):
         try:
             bot_msg = await mod_channel.send(content=content, embed=embed)
             self._embed_to_report[bot_msg.id] = report_id
+            
+            # Save to DB for persistence across reboots
+            await self.db.execute("UPDATE reports SET bot_msg_id = ? WHERE report_id = ?", (bot_msg.id, report_id))
+            await self.db.commit()
+            
             log.info("Mod embed sent (msg_id=%s) for report_id=%s", bot_msg.id, report_id)
             
             gif_urls = self._get_gif_urls(reported_message)
@@ -143,6 +148,13 @@ class Reporting(commands.Cog):
             return
             
         bot_msg_id = next((k for k, v in self._embed_to_report.items() if v == report_id), None)
+        if not bot_msg_id:
+            # Fallback to DB
+            async with self.db.execute("SELECT bot_msg_id FROM reports WHERE report_id = ?", (report_id,)) as cur:
+                row = await cur.fetchone()
+                if row and row["bot_msg_id"]:
+                    bot_msg_id = row["bot_msg_id"]
+                    
         if not bot_msg_id:
             return
             
@@ -226,7 +238,15 @@ class Reporting(commands.Cog):
     async def _handle_resolve_reaction(self, payload: discord.RawReactionActionEvent) -> None:
         report_id = self._embed_to_report.get(payload.message_id)
         if report_id is None:
+            # Fallback to DB
+            async with self.db.execute("SELECT report_id FROM reports WHERE bot_msg_id = ?", (payload.message_id,)) as cur:
+                row = await cur.fetchone()
+                if row:
+                    report_id = row["report_id"]
+                    
+        if report_id is None:
             return
+            
         await self.db.execute(
             "UPDATE reports SET status = 'resolved' WHERE report_id = ?", (report_id,)
         )
@@ -269,6 +289,13 @@ class Reporting(commands.Cog):
 
     async def _handle_dismiss_reaction(self, payload: discord.RawReactionActionEvent) -> None:
         report_id = self._embed_to_report.get(payload.message_id)
+        if report_id is None:
+            # Fallback to DB
+            async with self.db.execute("SELECT report_id FROM reports WHERE bot_msg_id = ?", (payload.message_id,)) as cur:
+                row = await cur.fetchone()
+                if row:
+                    report_id = row["report_id"]
+                    
         if report_id is None:
             return
             

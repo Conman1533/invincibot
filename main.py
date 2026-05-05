@@ -60,6 +60,13 @@ async def init_db(path: str) -> aiosqlite.Connection:
     db = await aiosqlite.connect(path)
     db.row_factory = aiosqlite.Row
     await db.executescript(CREATE_TABLES_SQL)
+    
+    # Safe migration
+    try:
+        await db.execute("ALTER TABLE reports ADD COLUMN bot_msg_id INTEGER")
+    except Exception:
+        pass
+        
     await db.commit()
     log.info("Database initialised at %s", path)
     return db
