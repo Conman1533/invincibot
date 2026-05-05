@@ -73,9 +73,12 @@ class Reporting(commands.Cog):
         )
         embed.add_field(name="Jump to Message", value=f"[Click here]({reported_message.jump_url})", inline=False)
         embed.set_footer(text=f"React {config.RESOLVE_EMOJI} to resolve and pay out bounties.")
-        bot_msg = await mod_channel.send(embed=embed)
-        self._embed_to_report[bot_msg.id] = report_id
-        log.info("Mod embed sent (msg_id=%s) for report_id=%s", bot_msg.id, report_id)
+        try:
+            bot_msg = await mod_channel.send(embed=embed)
+            self._embed_to_report[bot_msg.id] = report_id
+            log.info("Mod embed sent (msg_id=%s) for report_id=%s", bot_msg.id, report_id)
+        except discord.Forbidden:
+            log.error("Missing permissions to send messages or embed links in MOD_CHANNEL_ID (%s).", config.MOD_CHANNEL_ID)
 
     # ── listeners ────────────────────────────────────────────────────────────
 
@@ -128,7 +131,10 @@ class Reporting(commands.Cog):
         payout_channel = self.bot.get_channel(config.PAYOUT_CHANNEL_ID)
         if payout_channel:
             for row in rows:
-                await payout_channel.send(f"$add-money <@{row['user_id']}> {config.BOUNTY_AMOUNT}")
+                try:
+                    await payout_channel.send(f"$add-money <@{row['user_id']}> {config.BOUNTY_AMOUNT}")
+                except discord.Forbidden:
+                    log.error("Missing permissions to send messages in PAYOUT_CHANNEL_ID (%s).", config.PAYOUT_CHANNEL_ID)
         log.info("Report %s resolved; paid %s reporters.", report_id, len(rows))
         mod_channel = self.bot.get_channel(config.MOD_CHANNEL_ID)
         if mod_channel:

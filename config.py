@@ -11,25 +11,25 @@ The dashboard can also hot-reload these values at runtime via
 # ─────────────────────────────────────────────────────────────────────────────
 
 # reporting.py — where moderator report embeds are posted
-MOD_CHANNEL_ID: int = 111111111111111111
+MOD_CHANNEL_ID: int = 1500652032200016085
 
 # reporting.py / activity.py — where $add-money payouts are sent
-PAYOUT_CHANNEL_ID: int = 222222222222222222
+PAYOUT_CHANNEL_ID: int = 1500928000714211460
 
 # voicepatrol.py — where transcription output is logged
-LOG_CHANNEL_ID: int = 555555555555555555
+LOG_CHANNEL_ID: int = 1500652094288298166
 
 # activity.py — only messages in these channels count toward daily rewards
 ALLOWED_CHANNEL_IDS: set[int] = {
-    333333333333333333,   # e.g. #general
-    444444444444444444,   # e.g. #off-topic
+    1500651913241301132,   # e.g. #general
+    1500651996657746150,   # e.g. #off-topic
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  REPORTING MODULE
 # ─────────────────────────────────────────────────────────────────────────────
 
-REPORT_EMOJI_NAME: str = "report"   # name of your custom :report: emoji
+REPORT_EMOJI_NAME: str = "🐀"   # name of your custom :report: emoji
 RESOLVE_EMOJI: str     = "✅"
 BOUNTY_AMOUNT: int     = 100        # currency awarded per reporter on resolution
 
