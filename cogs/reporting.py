@@ -56,11 +56,7 @@ class Reporting(commands.Cog):
         except Exception:
             return False
 
-    async def _send_mod_embed(self, report_id: int, reported_message: discord.Message) -> None:
-        mod_channel = self.bot.get_channel(config.MOD_CHANNEL_ID)
-        if not mod_channel:
-            log.warning("MOD_CHANNEL_ID %s not found.", config.MOD_CHANNEL_ID)
-            return
+    async def _build_report_embed(self, report_id: int, reported_message: discord.Message) -> discord.Embed:
         embed = discord.Embed(
             title=f"New Report  [ID: {report_id}]",
             description=reported_message.content or "*[no text content]*",
@@ -71,14 +67,54 @@ class Reporting(commands.Cog):
             name=str(reported_message.author),
             icon_url=reported_message.author.display_avatar.url,
         )
+        embed.add_field(
+            name="Reported User",
+            value=f"{reported_message.author.mention} (ID: `{reported_message.author.id}`)",
+            inline=False
+        )
         embed.add_field(name="Jump to Message", value=f"[Click here]({reported_message.jump_url})", inline=False)
+        
+        async with self.db.execute(
+            "SELECT user_id FROM reporters WHERE report_id = ?", (report_id,)
+        ) as cur:
+            rows = await cur.fetchall()
+            
+        if rows:
+            reporters_str = ", ".join(f"<@{row['user_id']}>" for row in rows)
+            embed.add_field(name=f"Reporters ({len(rows)})", value=reporters_str, inline=False)
+            
         embed.set_footer(text=f"React {config.RESOLVE_EMOJI} to resolve and pay out bounties.")
+        return embed
+
+    async def _send_mod_embed(self, report_id: int, reported_message: discord.Message) -> None:
+        mod_channel = self.bot.get_channel(config.MOD_CHANNEL_ID)
+        if not mod_channel:
+            log.warning("MOD_CHANNEL_ID %s not found.", config.MOD_CHANNEL_ID)
+            return
+            
+        embed = await self._build_report_embed(report_id, reported_message)
         try:
             bot_msg = await mod_channel.send(embed=embed)
             self._embed_to_report[bot_msg.id] = report_id
             log.info("Mod embed sent (msg_id=%s) for report_id=%s", bot_msg.id, report_id)
         except discord.Forbidden:
             log.error("Missing permissions to send messages or embed links in MOD_CHANNEL_ID (%s).", config.MOD_CHANNEL_ID)
+
+    async def _update_mod_embed(self, report_id: int, reported_message: discord.Message) -> None:
+        mod_channel = self.bot.get_channel(config.MOD_CHANNEL_ID)
+        if not mod_channel:
+            return
+            
+        bot_msg_id = next((k for k, v in self._embed_to_report.items() if v == report_id), None)
+        if not bot_msg_id:
+            return
+            
+        try:
+            bot_msg = await mod_channel.fetch_message(bot_msg_id)
+            embed = await self._build_report_embed(report_id, reported_message)
+            await bot_msg.edit(embed=embed)
+        except Exception as exc:
+            log.warning("Could not update reporters in mod embed: %s", exc)
 
     # ── listeners ────────────────────────────────────────────────────────────
 
@@ -115,6 +151,7 @@ class Reporting(commands.Cog):
             await self._send_mod_embed(report_id, message)
         elif newly_added:
             log.info("User %s added to existing report (id=%s)", payload.user_id, report_id)
+            await self._update_mod_embed(report_id, message)
 
     async def _handle_resolve_reaction(self, payload: discord.RawReactionActionEvent) -> None:
         report_id = self._embed_to_report.get(payload.message_id)

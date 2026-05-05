@@ -42,9 +42,7 @@ class Activity(commands.Cog):
             return
         self._cache[message.author.id] = self._cache.get(message.author.id, 0) + 1
 
-    @tasks.loop(time=time(hour=0, minute=0))
-    async def midnight_reset(self):
-        log.info("Midnight reset triggered. Flushing %d entries.", len(self._cache))
+    async def _flush_cache(self):
         if not self._cache:
             return
         for user_id, count in self._cache.items():
@@ -57,19 +55,49 @@ class Activity(commands.Cog):
                 (user_id, count),
             )
         await self.db.commit()
+        self._cache.clear()
+
+    @commands.command(name="activity")
+    async def cmd_activity(self, ctx: commands.Context):
+        """Displays the top 5 most active users today."""
+        await self._flush_cache()
+        async with self.db.execute(
+            "SELECT user_id, message_count FROM daily_activity ORDER BY message_count DESC LIMIT 5"
+        ) as cur:
+            top_users = await cur.fetchall()
+            
+        if not top_users:
+            await ctx.send("No activity recorded yet today!")
+            return
+            
+        embed = discord.Embed(title="Top 5 Most Active Users (Today)", color=discord.Color.blue())
+        for idx, row in enumerate(top_users, start=1):
+            embed.add_field(
+                name=f"#{idx}", 
+                value=f"<@{row['user_id']}>: {row['message_count']} messages", 
+                inline=False
+            )
+        await ctx.send(embed=embed)
+
+    @tasks.loop(time=time(hour=0, minute=0))
+    async def midnight_reset(self):
+        log.info("Midnight reset triggered. Flushing %d entries.", len(self._cache))
+        await self._flush_cache()
+        
         async with self.db.execute(
             "SELECT user_id, message_count FROM daily_activity ORDER BY message_count DESC LIMIT ?",
             (config.ACTIVITY_TOP_N,),
         ) as cur:
             winners = await cur.fetchall()
+            
         payout_channel = self.bot.get_channel(config.PAYOUT_CHANNEL_ID)
         if payout_channel and winners:
             for row in winners:
                 await payout_channel.send(f"$add-money <@{row['user_id']}> {config.ACTIVITY_WINNER_REWARD}")
                 log.info("Awarded %s to user %s", config.ACTIVITY_WINNER_REWARD, row["user_id"])
+                
         await self.db.execute("DELETE FROM daily_activity")
         await self.db.commit()
-        self._cache.clear()
         log.info("Daily activity reset complete.")
 
     @midnight_reset.before_loop
