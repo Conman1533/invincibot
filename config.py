@@ -11,7 +11,7 @@ The dashboard can also hot-reload these values at runtime via
 # ─────────────────────────────────────────────────────────────────────────────
 
 # reporting.py — where moderator report embeds are posted
-MOD_CHANNEL_ID: int = 1500928000714211460
+MOD_CHANNEL_ID: int = 1500652032200016085
 MOD_ROLE_ID: int = 839237255158956042  # Fill in the role ID to ping on new reports
 
 # reporting.py / activity.py — where $add-money payouts are sent
@@ -67,7 +67,7 @@ BAD_WORDS: set[str] = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 DASHBOARD_HOST: str = "0.0.0.0"
-DASHBOARD_PORT: int = 8080
+DASHBOARD_PORT: int = 8081
 # Simple shared secret — set via env var DASHBOARD_SECRET or change here
 import os as _os
 DASHBOARD_SECRET: str = _os.environ.get("DASHBOARD_SECRET", "changeme")
