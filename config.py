@@ -11,7 +11,7 @@ The dashboard can also hot-reload these values at runtime via
 # ─────────────────────────────────────────────────────────────────────────────
 
 # reporting.py — where moderator report embeds are posted
-MOD_CHANNEL_ID: int = 8379281537744240845
+MOD_CHANNEL_ID: int = 837928153774424084
 MOD_ROLE_ID: int = 839237255158956042  # Fill in the role ID to ping on new reports
 
 # reporting.py / activity.py — where $add-money payouts are sent
