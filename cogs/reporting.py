@@ -74,6 +74,22 @@ class Reporting(commands.Cog):
         )
         embed.add_field(name="Jump to Message", value=f"[Click here]({reported_message.jump_url})", inline=False)
         
+        if reported_message.attachments:
+            first_img = next((a for a in reported_message.attachments if a.content_type and a.content_type.startswith("image/")), None)
+            if first_img:
+                embed.set_image(url=first_img.url)
+                
+            urls = "\n".join(f"[{a.filename}]({a.url})" for a in reported_message.attachments)
+            embed.add_field(name="Attachments", value=urls, inline=False)
+        elif reported_message.embeds:
+            for e in reported_message.embeds:
+                if e.image and e.image.url:
+                    embed.set_image(url=e.image.url)
+                    break
+                elif e.thumbnail and e.thumbnail.url:
+                    embed.set_image(url=e.thumbnail.url)
+                    break
+        
         async with self.db.execute(
             "SELECT user_id FROM reporters WHERE report_id = ?", (report_id,)
         ) as cur:
