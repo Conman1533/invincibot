@@ -54,6 +54,8 @@ ACTIVITY_WINNER_REWARD: int = 500  # currency per winner
 #  VOICE PATROL MODULE
 # ─────────────────────────────────────────────────────────────────────────────
 
+VOICE_PATROL_ENABLED: bool = False
+
 WHISPER_MODEL_SIZE: str    = "base.en"
 WHISPER_DEVICE: str        = "cuda"
 WHISPER_COMPUTE_TYPE: str  = "float16"

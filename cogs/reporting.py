@@ -107,6 +107,13 @@ class Reporting(commands.Cog):
         embed.set_footer(text=f"React {config.RESOLVE_EMOJI} to resolve and pay out bounties.")
         return embed
 
+    def _get_gif_urls(self, message: discord.Message) -> list[str]:
+        urls = []
+        for e in message.embeds:
+            if e.url and (e.type == "gifv" or "tenor.com" in e.url or "giphy.com" in e.url):
+                urls.append(e.url)
+        return urls
+
     async def _send_mod_embed(self, report_id: int, reported_message: discord.Message) -> None:
         mod_channel = self.bot.get_channel(config.MOD_CHANNEL_ID)
         if not mod_channel:
@@ -114,9 +121,16 @@ class Reporting(commands.Cog):
             return
             
         embed = await self._build_report_embed(report_id, reported_message)
-        content = ""
+        
+        content_parts = []
         if getattr(config, "MOD_ROLE_ID", 0):
-            content = f"<@&{config.MOD_ROLE_ID}> New Report!"
+            content_parts.append(f"<@&{config.MOD_ROLE_ID}> New Report!")
+            
+        gif_urls = self._get_gif_urls(reported_message)
+        if gif_urls:
+            content_parts.append("\n**GIFs included:**\n" + "\n".join(gif_urls))
+            
+        content = "\n".join(content_parts)
             
         try:
             bot_msg = await mod_channel.send(content=content, embed=embed)
