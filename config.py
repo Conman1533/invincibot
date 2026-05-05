@@ -11,10 +11,11 @@ The dashboard can also hot-reload these values at runtime via
 # ─────────────────────────────────────────────────────────────────────────────
 
 # reporting.py — where moderator report embeds are posted
-MOD_CHANNEL_ID: int = 1500652032200016085
+MOD_CHANNEL_ID: int = 1500928000714211460
+MOD_ROLE_ID: int = 839237255158956042  # Fill in the role ID to ping on new reports
 
 # reporting.py / activity.py — where $add-money payouts are sent
-PAYOUT_CHANNEL_ID: int = 840431174845071401
+PAYOUT_CHANNEL_ID: int = 1500928000714211460
 
 # voicepatrol.py — where transcription output is logged
 LOG_CHANNEL_ID: int = 1500652094288298166

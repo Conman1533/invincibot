@@ -109,8 +109,12 @@ class Reporting(commands.Cog):
             return
             
         embed = await self._build_report_embed(report_id, reported_message)
+        content = ""
+        if getattr(config, "MOD_ROLE_ID", 0):
+            content = f"<@&{config.MOD_ROLE_ID}> New Report!"
+            
         try:
-            bot_msg = await mod_channel.send(embed=embed)
+            bot_msg = await mod_channel.send(content=content, embed=embed)
             self._embed_to_report[bot_msg.id] = report_id
             log.info("Mod embed sent (msg_id=%s) for report_id=%s", bot_msg.id, report_id)
         except discord.Forbidden:
@@ -146,6 +150,37 @@ class Reporting(commands.Cog):
             await self._handle_report_reaction(payload)
         elif str(emoji) == config.RESOLVE_EMOJI and payload.channel_id == config.MOD_CHANNEL_ID:
             await self._handle_resolve_reaction(payload)
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
+        if payload.user_id == self.bot.user.id:
+            return
+
+        emoji = payload.emoji
+        if emoji.name == config.REPORT_EMOJI_NAME:
+            async with self.db.execute(
+                "SELECT report_id FROM reports WHERE message_id = ?", (payload.message_id,)
+            ) as cur:
+                row = await cur.fetchone()
+            
+            if not row:
+                return
+                
+            report_id = row["report_id"]
+            
+            await self.db.execute(
+                "DELETE FROM reporters WHERE report_id = ? AND user_id = ?",
+                (report_id, payload.user_id)
+            )
+            await self.db.commit()
+            
+            channel = self.bot.get_channel(payload.channel_id)
+            if channel:
+                try:
+                    message = await channel.fetch_message(payload.message_id)
+                    await self._update_mod_embed(report_id, message)
+                except discord.NotFound:
+                    pass
 
     async def _handle_report_reaction(self, payload: discord.RawReactionActionEvent) -> None:
         channel = self.bot.get_channel(payload.channel_id)
