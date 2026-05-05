@@ -99,6 +99,13 @@ class Reporting(commands.Cog):
         embed.set_footer(text=f"React {config.RESOLVE_EMOJI} to pay bounties. React {getattr(config, 'DISMISS_EMOJI', '❌')} to dismiss.")
         return embed
 
+    def _log_training_data(self, content: str, label: str) -> None:
+        import json
+        import os
+        os.makedirs("data", exist_ok=True)
+        with open("data/llm_training_data.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps({"text": content, "label": label}) + "\n")
+
     def _get_gif_urls(self, message: discord.Message) -> list[str]:
         urls = []
         for e in message.embeds:
@@ -247,6 +254,12 @@ class Reporting(commands.Cog):
             try:
                 bot_msg = await mod_channel.fetch_message(payload.message_id)
                 resolved_embed = bot_msg.embeds[0].copy()
+                
+                # Log for LLM training
+                text = resolved_embed.description
+                if text and text != "*[no text content]*":
+                    self._log_training_data(text, "positive")
+                    
                 resolved_embed.color = discord.Color.green()
                 resolved_embed.title = resolved_embed.title.replace("New Report", "Resolved")
                 await bot_msg.edit(embed=resolved_embed)
@@ -271,6 +284,12 @@ class Reporting(commands.Cog):
             try:
                 bot_msg = await mod_channel.fetch_message(payload.message_id)
                 dismissed_embed = bot_msg.embeds[0].copy()
+                
+                # Log for LLM training
+                text = dismissed_embed.description
+                if text and text != "*[no text content]*":
+                    self._log_training_data(text, "negative")
+                    
                 dismissed_embed.color = discord.Color.red()
                 dismissed_embed.title = dismissed_embed.title.replace("New Report", "Dismissed")
                 await bot_msg.edit(embed=dismissed_embed)
