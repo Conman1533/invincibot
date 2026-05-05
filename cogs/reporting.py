@@ -87,7 +87,7 @@ class Reporting(commands.Cog):
             return
 
         emoji = payload.emoji
-        if emoji.id == config.REPORT_EMOJI_ID:
+        if emoji.name == config.REPORT_EMOJI_NAME:
             await self._handle_report_reaction(payload)
         elif str(emoji) == config.RESOLVE_EMOJI and payload.channel_id == config.MOD_CHANNEL_ID:
             await self._handle_resolve_reaction(payload)

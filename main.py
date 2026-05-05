@@ -3,6 +3,8 @@ main.py — Bot entry point.
 Loads faster-whisper onto the V100, initialises the database,
 starts the web dashboard, and dynamically loads every cog.
 """
+import dotenv
+dotenv.load_dotenv()
 
 import asyncio
 import logging
