@@ -18,10 +18,13 @@ import importlib
 import logging
 import os
 import sys
+import hmac
+import hashlib
+import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import Depends, FastAPI, HTTPException, Header
+from fastapi import Depends, FastAPI, HTTPException, Header, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -158,6 +161,50 @@ def create_app(bot: "MyBot") -> FastAPI:
             return {"lines": []}
         all_lines = LOG_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
         return {"lines": all_lines[-lines:]}
+
+    # ── GitHub Webhook ────────────────────────────────────────────────────────
+    @app.post("/api/webhook/github")
+    async def github_webhook(request: Request, x_hub_signature_256: str = Header(None)):
+        if not getattr(config, "GITHUB_WEBHOOK_SECRET", ""):
+            raise HTTPException(status_code=500, detail="Webhook secret not configured.")
+        if not x_hub_signature_256:
+            raise HTTPException(status_code=401, detail="Missing signature.")
+            
+        payload = await request.body()
+        
+        # Verify signature
+        mac = hmac.new(config.GITHUB_WEBHOOK_SECRET.encode("utf-8"), msg=payload, digestmod=hashlib.sha256)
+        expected_mac = "sha256=" + mac.hexdigest()
+        if not hmac.compare_digest(expected_mac, x_hub_signature_256):
+            raise HTTPException(status_code=401, detail="Invalid signature.")
+            
+        log.info("Received valid GitHub webhook. Pulling updates...")
+        
+        try:
+            process = await asyncio.create_subprocess_shell(
+                "git pull",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+            if process.returncode != 0:
+                log.error("git pull failed: %s", stderr.decode())
+                raise HTTPException(status_code=500, detail="Git pull failed.")
+                
+            log.info("git pull successful: %s", stdout.decode())
+        except Exception as exc:
+            log.exception("Exception during git pull: %s", exc)
+            raise HTTPException(status_code=500, detail="Internal error during git pull.")
+            
+        # Schedule restart
+        async def do_restart():
+            await asyncio.sleep(2)
+            log.warning("Shutting down for update via GitHub webhook...")
+            os._exit(0)
+            
+        asyncio.create_task(do_restart())
+        
+        return {"status": "ok", "detail": "Update pulled. Restarting..."}
 
     # ── SPA ───────────────────────────────────────────────────────────────────
     dashboard_html = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")

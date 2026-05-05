@@ -14,7 +14,7 @@ The dashboard can also hot-reload these values at runtime via
 MOD_CHANNEL_ID: int = 1500652032200016085
 
 # reporting.py / activity.py — where $add-money payouts are sent
-PAYOUT_CHANNEL_ID: int = 1500928000714211460
+PAYOUT_CHANNEL_ID: int = 840431174845071401
 
 # voicepatrol.py — where transcription output is logged
 LOG_CHANNEL_ID: int = 1500652094288298166
@@ -23,6 +23,15 @@ LOG_CHANNEL_ID: int = 1500652094288298166
 ALLOWED_CHANNEL_IDS: set[int] = {
     1500651913241301132,   # e.g. #general
     1500651996657746150,   # e.g. #off-topic
+    824512448564035614,
+    824510216511029263,
+    824511312604299285,
+    921816822779621416,
+    1224548843018915943,
+    824510216511029265,
+    839964157624320058,
+    839964567425253426,
+    839995040494518282,
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -48,6 +57,10 @@ WHISPER_MODEL_SIZE: str    = "base.en"
 WHISPER_DEVICE: str        = "cuda"
 WHISPER_COMPUTE_TYPE: str  = "float16"
 
+BAD_WORDS: set[str] = {
+    "squirrel",
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  DASHBOARD
 # ─────────────────────────────────────────────────────────────────────────────
@@ -57,6 +70,8 @@ DASHBOARD_PORT: int = 8080
 # Simple shared secret — set via env var DASHBOARD_SECRET or change here
 import os as _os
 DASHBOARD_SECRET: str = _os.environ.get("DASHBOARD_SECRET", "changeme")
+
+GITHUB_WEBHOOK_SECRET: str = _os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  UNBELIEVABOAT API
