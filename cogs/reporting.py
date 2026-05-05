@@ -60,7 +60,7 @@ class Reporting(commands.Cog):
         embed = discord.Embed(
             title=f"New Report  [ID: {report_id}]",
             description=reported_message.content or "*[no text content]*",
-            color=discord.Color.red(),
+            color=discord.Color.yellow(),
             timestamp=reported_message.created_at,
         )
         embed.set_author(
@@ -96,7 +96,7 @@ class Reporting(commands.Cog):
             reporters_str = ", ".join(f"<@{row['user_id']}>" for row in rows)
             embed.add_field(name=f"Reporters ({len(rows)})", value=reporters_str, inline=False)
             
-        embed.set_footer(text=f"React {config.RESOLVE_EMOJI} to resolve and pay out bounties.")
+        embed.set_footer(text=f"React {config.RESOLVE_EMOJI} to pay bounties. React {getattr(config, 'DISMISS_EMOJI', '❌')} to dismiss.")
         return embed
 
     def _get_gif_urls(self, message: discord.Message) -> list[str]:
@@ -160,6 +160,8 @@ class Reporting(commands.Cog):
             await self._handle_report_reaction(payload)
         elif str(emoji) == config.RESOLVE_EMOJI and payload.channel_id == config.MOD_CHANNEL_ID:
             await self._handle_resolve_reaction(payload)
+        elif str(emoji) == getattr(config, "DISMISS_EMOJI", "❌") and payload.channel_id == config.MOD_CHANNEL_ID:
+            await self._handle_dismiss_reaction(payload)
 
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
@@ -205,7 +207,7 @@ class Reporting(commands.Cog):
             "SELECT status FROM reports WHERE report_id = ?", (report_id,)
         ) as cur:
             row = await cur.fetchone()
-        if row and row["status"] == "resolved":
+        if row and row["status"] in ("resolved", "dismissed"):
             return
         newly_added = await self._add_reporter(report_id, payload.user_id)
         if is_new:
@@ -250,6 +252,31 @@ class Reporting(commands.Cog):
                 await bot_msg.edit(embed=resolved_embed)
             except Exception as exc:
                 log.warning("Could not update mod embed: %s", exc)
+        self._embed_to_report.pop(payload.message_id, None)
+
+    async def _handle_dismiss_reaction(self, payload: discord.RawReactionActionEvent) -> None:
+        report_id = self._embed_to_report.get(payload.message_id)
+        if report_id is None:
+            return
+            
+        await self.db.execute(
+            "UPDATE reports SET status = 'dismissed' WHERE report_id = ?", (report_id,)
+        )
+        await self.db.commit()
+        
+        log.info("Report %s dismissed.", report_id)
+        
+        mod_channel = self.bot.get_channel(config.MOD_CHANNEL_ID)
+        if mod_channel:
+            try:
+                bot_msg = await mod_channel.fetch_message(payload.message_id)
+                dismissed_embed = bot_msg.embeds[0].copy()
+                dismissed_embed.color = discord.Color.red()
+                dismissed_embed.title = dismissed_embed.title.replace("New Report", "Dismissed")
+                await bot_msg.edit(embed=dismissed_embed)
+            except Exception as exc:
+                log.warning("Could not update mod embed: %s", exc)
+                
         self._embed_to_report.pop(payload.message_id, None)
 
 
