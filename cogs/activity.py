@@ -80,6 +80,7 @@ class Activity(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(name="activitymanualtest")
+    @commands.has_role(824513909129084938)
     async def cmd_activitymanualtest(self, ctx: commands.Context):
         """Manually tests the activity payout to the top 2 chatters (Bank deposit)."""
         await self._flush_cache()
