@@ -86,14 +86,6 @@ class Reporting(commands.Cog):
                 
             urls = "\n".join(f"[{a.filename}]({a.url})" for a in reported_message.attachments)
             embed.add_field(name="Attachments", value=urls, inline=False)
-        elif reported_message.embeds:
-            for e in reported_message.embeds:
-                if e.image and e.image.url:
-                    embed.set_image(url=e.image.url)
-                    break
-                elif e.thumbnail and e.thumbnail.url:
-                    embed.set_image(url=e.thumbnail.url)
-                    break
         
         async with self.db.execute(
             "SELECT user_id FROM reporters WHERE report_id = ?", (report_id,)
