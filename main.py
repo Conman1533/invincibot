@@ -73,8 +73,9 @@ class MyBot(commands.Bot):
         self.whisper_model = whisper_model
         self.db = db
 
-    async def setup_hook(self):
+    async def start(self, *args, **kwargs):
         self.session = aiohttp.ClientSession()
+        await super().start(*args, **kwargs)
 
     async def on_ready(self):
         log.info("Logged in as %s (ID: %s)", self.user, self.user.id)

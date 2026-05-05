@@ -63,4 +63,4 @@ DASHBOARD_SECRET: str = _os.environ.get("DASHBOARD_SECRET", "changeme")
 # ─────────────────────────────────────────────────────────────────────────────
 
 UNB_API_TOKEN: str = _os.environ.get("UNB_API_TOKEN", "")
-GUILD_ID: int = 0  # Fill in your Discord Server ID here
+GUILD_ID: int = 824510213909512192  # Fill in your Discord Server ID here
