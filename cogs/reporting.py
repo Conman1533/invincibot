@@ -80,11 +80,14 @@ class Reporting(commands.Cog):
     # ── listeners ────────────────────────────────────────────────────────────
 
     @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):   
+        log.info("Reaction received: emoji_name=%s emoji_id=%s channel=%s user=%s", payload.emoji.name, payload.emoji.id, payload.channel_id, payload.user_id)
+        
         if payload.user_id == self.bot.user.id:
             return
+
         emoji = payload.emoji
-        if emoji.name == config.REPORT_EMOJI_NAME:
+        if emoji.id == config.REPORT_EMOJI_ID:
             await self._handle_report_reaction(payload)
         elif str(emoji) == config.RESOLVE_EMOJI and payload.channel_id == config.MOD_CHANNEL_ID:
             await self._handle_resolve_reaction(payload)

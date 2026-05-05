@@ -93,6 +93,8 @@ async def main():
     bot = MyBot(whisper_model=whisper_model, db=db)
 
     for cog_file in sorted(COGS_DIR.glob("*.py")):
+        if cog_file.stem == "__init__":
+            continue
         extension = f"cogs.{cog_file.stem}"
         try:
             bot.load_extension(extension)
