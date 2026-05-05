@@ -72,6 +72,11 @@ class Reporting(commands.Cog):
             value=f"{reported_message.author.mention} (ID: `{reported_message.author.id}`)",
             inline=False
         )
+        embed.add_field(
+            name="Channel",
+            value=f"{reported_message.channel.mention} (ID: `{reported_message.channel.id}`)",
+            inline=False
+        )
         embed.add_field(name="Jump to Message", value=f"[Click here]({reported_message.jump_url})", inline=False)
         
         if reported_message.attachments:
