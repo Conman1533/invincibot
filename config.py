@@ -57,3 +57,10 @@ DASHBOARD_PORT: int = 8080
 # Simple shared secret — set via env var DASHBOARD_SECRET or change here
 import os as _os
 DASHBOARD_SECRET: str = _os.environ.get("DASHBOARD_SECRET", "changeme")
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  UNBELIEVABOAT API
+# ─────────────────────────────────────────────────────────────────────────────
+
+UNB_API_TOKEN: str = _os.environ.get("UNB_API_TOKEN", "")
+GUILD_ID: int = 0  # Fill in your Discord Server ID here

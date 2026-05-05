@@ -11,6 +11,7 @@ import logging
 import os
 from pathlib import Path
 
+import aiohttp
 import aiosqlite
 import discord
 from discord.ext import commands
@@ -72,10 +73,15 @@ class MyBot(commands.Bot):
         self.whisper_model = whisper_model
         self.db = db
 
+    async def setup_hook(self):
+        self.session = aiohttp.ClientSession()
+
     async def on_ready(self):
         log.info("Logged in as %s (ID: %s)", self.user, self.user.id)
 
     async def close(self):
+        if hasattr(self, 'session') and self.session:
+            await self.session.close()
         await self.db.close()
         log.info("Database connection closed.")
         await super().close()

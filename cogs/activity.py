@@ -90,11 +90,19 @@ class Activity(commands.Cog):
         ) as cur:
             winners = await cur.fetchall()
             
+        from utils import add_unb_money
         payout_channel = self.bot.get_channel(config.PAYOUT_CHANNEL_ID)
-        if payout_channel and winners:
+        if winners:
+            paid_count = 0
             for row in winners:
-                await payout_channel.send(f"$add-money <@{row['user_id']}> {config.ACTIVITY_WINNER_REWARD}")
-                log.info("Awarded %s to user %s", config.ACTIVITY_WINNER_REWARD, row["user_id"])
+                if await add_unb_money(self.bot, row['user_id'], config.ACTIVITY_WINNER_REWARD):
+                    paid_count += 1
+                    log.info("Awarded %s to user %s via API", config.ACTIVITY_WINNER_REWARD, row["user_id"])
+            if payout_channel and paid_count > 0:
+                try:
+                    await payout_channel.send(f"🎉 Midnight reset complete! Rewarded {paid_count} top active user(s) with {config.ACTIVITY_WINNER_REWARD} coins each.")
+                except discord.Forbidden:
+                    pass
                 
         await self.db.execute("DELETE FROM daily_activity")
         await self.db.commit()

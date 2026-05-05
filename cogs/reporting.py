@@ -165,14 +165,19 @@ class Reporting(commands.Cog):
             "SELECT user_id FROM reporters WHERE report_id = ?", (report_id,)
         ) as cur:
             rows = await cur.fetchall()
+        from utils import add_unb_money
         payout_channel = self.bot.get_channel(config.PAYOUT_CHANNEL_ID)
-        if payout_channel:
-            for row in rows:
-                try:
-                    await payout_channel.send(f"$add-money <@{row['user_id']}> {config.BOUNTY_AMOUNT}")
-                except discord.Forbidden:
-                    log.error("Missing permissions to send messages in PAYOUT_CHANNEL_ID (%s).", config.PAYOUT_CHANNEL_ID)
-        log.info("Report %s resolved; paid %s reporters.", report_id, len(rows))
+        paid_count = 0
+        for row in rows:
+            if await add_unb_money(self.bot, row['user_id'], config.BOUNTY_AMOUNT):
+                paid_count += 1
+                
+        if payout_channel and paid_count > 0:
+            try:
+                await payout_channel.send(f"✅ Paid {config.BOUNTY_AMOUNT} coins to {paid_count} reporter(s) for report ID {report_id}.")
+            except discord.Forbidden:
+                pass
+        log.info("Report %s resolved; paid %s reporters via API.", report_id, paid_count)
         mod_channel = self.bot.get_channel(config.MOD_CHANNEL_ID)
         if mod_channel:
             try:
