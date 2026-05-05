@@ -4,9 +4,10 @@ import config
 
 log = logging.getLogger("utils.economy")
 
-async def add_unb_money(bot, user_id: int, amount: int) -> bool:
+async def add_unb_money(bot, user_id: int, amount: int, target: str = "cash") -> bool:
     """
     Adds money to a user's UnbelievaBoat balance via the REST API.
+    `target` can be "cash" or "bank".
     Returns True if successful, False otherwise.
     """
     if not config.UNB_API_TOKEN or not config.GUILD_ID:
@@ -23,7 +24,7 @@ async def add_unb_money(bot, user_id: int, amount: int) -> bool:
         "Content-Type": "application/json"
     }
     payload = {
-        "cash": amount
+        target: amount
     }
 
     try:

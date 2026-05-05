@@ -5,7 +5,7 @@ All IDs and tunable values are imported from config.py.
 
 from __future__ import annotations
 import logging
-from datetime import time
+from datetime import time, timezone
 from typing import TYPE_CHECKING
 import discord
 from discord.ext import commands, tasks
@@ -79,7 +79,34 @@ class Activity(commands.Cog):
             )
         await ctx.send(embed=embed)
 
-    @tasks.loop(time=time(hour=0, minute=0))
+    @commands.command(name="activitymanualtest")
+    @commands.has_permissions(administrator=True)
+    async def cmd_activitymanualtest(self, ctx: commands.Context):
+        """Manually tests the activity payout to the top 2 chatters (Bank deposit)."""
+        await self._flush_cache()
+        async with self.db.execute(
+            "SELECT user_id FROM daily_activity ORDER BY message_count DESC LIMIT 2"
+        ) as cur:
+            top_users = await cur.fetchall()
+            
+        if not top_users:
+            await ctx.send("No activity recorded yet today!")
+            return
+            
+        from utils import add_unb_money
+        
+        user_1 = top_users[0]['user_id']
+        await add_unb_money(self.bot, user_1, 300, target="bank")
+        mentions = [f"<@{user_1}> (300 coins)"]
+        
+        if len(top_users) > 1:
+            user_2 = top_users[1]['user_id']
+            await add_unb_money(self.bot, user_2, 200, target="bank")
+            mentions.append(f"<@{user_2}> (200 coins)")
+            
+        await ctx.send(f"✅ Manual activity test complete! Deposited into bank for: {', '.join(mentions)}")
+
+    @tasks.loop(time=time(hour=0, minute=0, tzinfo=timezone.utc))
     async def midnight_reset(self):
         log.info("Midnight reset triggered. Flushing %d entries.", len(self._cache))
         await self._flush_cache()
