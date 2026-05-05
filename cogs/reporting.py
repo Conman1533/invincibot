@@ -114,20 +114,19 @@ class Reporting(commands.Cog):
             
         embed = await self._build_report_embed(report_id, reported_message)
         
-        content_parts = []
+        content = ""
         if getattr(config, "MOD_ROLE_ID", 0):
-            content_parts.append(f"<@&{config.MOD_ROLE_ID}> New Report!")
-            
-        gif_urls = self._get_gif_urls(reported_message)
-        if gif_urls:
-            content_parts.append("\n**GIFs included:**\n" + "\n".join(gif_urls))
-            
-        content = "\n".join(content_parts)
+            content = f"<@&{config.MOD_ROLE_ID}> New Report!"
             
         try:
             bot_msg = await mod_channel.send(content=content, embed=embed)
             self._embed_to_report[bot_msg.id] = report_id
             log.info("Mod embed sent (msg_id=%s) for report_id=%s", bot_msg.id, report_id)
+            
+            gif_urls = self._get_gif_urls(reported_message)
+            if gif_urls:
+                await bot_msg.reply(content="\n".join(gif_urls))
+                
         except discord.Forbidden:
             log.error("Missing permissions to send messages or embed links in MOD_CHANNEL_ID (%s).", config.MOD_CHANNEL_ID)
 
