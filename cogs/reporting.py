@@ -165,13 +165,6 @@ class Reporting(commands.Cog):
         except Exception as exc:
             log.warning("Could not update reporters in mod embed: %s", exc)
 
-    async def _reward_mod_private(self, user_id: int, action: str) -> None:
-        """Sends a private DM to the moderator about their reward."""
-        try:
-            user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-            await user.send(f"👮 You've been rewarded with {config.MOD_REWARD_AMOUNT} coins (deposited to bank) for {action} a report.")
-        except Exception:
-            log.warning("Could not send private reward DM to user %s.", user_id)
 
     # ── listeners ────────────────────────────────────────────────────────────
 
@@ -275,8 +268,6 @@ class Reporting(commands.Cog):
         if payout_channel and (paid_users or mod_paid):
             mentions = " ".join(f"<@{uid}>" for uid in paid_users)
             msg = f"✅ Paid {config.BOUNTY_AMOUNT} coins to {mentions}." if paid_users else "✅ Report resolved."
-            if mod_paid:
-                await self._reward_mod_private(payload.user_id, "resolving")
             msg += " Make sure to deposit your coins with $dep all"
             try:
                 await payout_channel.send(msg)
@@ -320,8 +311,6 @@ class Reporting(commands.Cog):
         
         from utils import add_unb_money
         mod_paid = await add_unb_money(self.bot, payload.user_id, config.MOD_REWARD_AMOUNT, target="bank")
-        if mod_paid:
-            await self._reward_mod_private(payload.user_id, "dismissing")
         
         log.info("Report %s dismissed.", report_id)
         
