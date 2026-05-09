@@ -165,6 +165,14 @@ class Reporting(commands.Cog):
         except Exception as exc:
             log.warning("Could not update reporters in mod embed: %s", exc)
 
+    async def _reward_mod_private(self, user_id: int, action: str) -> None:
+        """Sends a private DM to the moderator about their reward."""
+        try:
+            user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+            await user.send(f"👮 You've been rewarded with {config.MOD_REWARD_AMOUNT} coins (deposited to bank) for {action} a report.")
+        except Exception:
+            log.warning("Could not send private reward DM to user %s.", user_id)
+
     # ── listeners ────────────────────────────────────────────────────────────
 
     @commands.Cog.listener()
@@ -268,7 +276,7 @@ class Reporting(commands.Cog):
             mentions = " ".join(f"<@{uid}>" for uid in paid_users)
             msg = f"✅ Paid {config.BOUNTY_AMOUNT} coins to {mentions}." if paid_users else "✅ Report resolved."
             if mod_paid:
-                msg += f" Also rewarded mod <@{payload.user_id}> with {config.MOD_REWARD_AMOUNT} coins (deposited to bank)."
+                await self._reward_mod_private(payload.user_id, "resolving")
             msg += " Make sure to deposit your coins with $dep all"
             try:
                 await payout_channel.send(msg)
@@ -313,12 +321,7 @@ class Reporting(commands.Cog):
         from utils import add_unb_money
         mod_paid = await add_unb_money(self.bot, payload.user_id, config.MOD_REWARD_AMOUNT, target="bank")
         if mod_paid:
-            payout_channel = self.bot.get_channel(config.PAYOUT_CHANNEL_ID)
-            if payout_channel:
-                try:
-                    await payout_channel.send(f"👮 Rewarded mod <@{payload.user_id}> with {config.MOD_REWARD_AMOUNT} coins (deposited to bank) for dismissing a report.")
-                except discord.Forbidden:
-                    pass
+            await self._reward_mod_private(payload.user_id, "dismissing")
         
         log.info("Report %s dismissed.", report_id)
         
