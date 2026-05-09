@@ -15,7 +15,9 @@ import aiohttp
 import aiosqlite
 import discord
 from discord.ext import commands
-from faster_whisper import WhisperModel
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from faster_whisper import WhisperModel
 
 import config
 
@@ -80,7 +82,7 @@ async def init_db(path: str) -> aiosqlite.Connection:
 
 # ─── Bot class ────────────────────────────────────────────────────────────────
 class MyBot(commands.Bot):
-    def __init__(self, whisper_model: WhisperModel, db: aiosqlite.Connection):
+    def __init__(self, whisper_model: "WhisperModel | None", db: aiosqlite.Connection):
         intents = discord.Intents.all()
         super().__init__(command_prefix="!", intents=intents)
         self.whisper_model = whisper_model
@@ -103,13 +105,18 @@ class MyBot(commands.Bot):
 
 # ─── Entry point ──────────────────────────────────────────────────────────────
 async def main():
-    log.info("Loading faster-whisper model onto CUDA ...")
-    whisper_model = WhisperModel(
-        config.WHISPER_MODEL_SIZE,
-        device=config.WHISPER_DEVICE,
-        compute_type=config.WHISPER_COMPUTE_TYPE,
-    )
-    log.info("Whisper model ready.")
+    whisper_model = None
+    if getattr(config, "VOICE_PATROL_ENABLED", False):
+        log.info("Loading faster-whisper model onto CUDA ...")
+        from faster_whisper import WhisperModel
+        whisper_model = WhisperModel(
+            config.WHISPER_MODEL_SIZE,
+            device=config.WHISPER_DEVICE,
+            compute_type=config.WHISPER_COMPUTE_TYPE,
+        )
+        log.info("Whisper model ready.")
+    else:
+        log.info("Voice patrol disabled in config. Skipping Whisper model load.")
 
     db = await init_db(DB_PATH)
     bot = MyBot(whisper_model=whisper_model, db=db)
