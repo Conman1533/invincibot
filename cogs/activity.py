@@ -40,6 +40,9 @@ class Activity(commands.Cog):
             return
         if message.channel.id not in config.ALLOWED_CHANNEL_IDS:
             return
+        if isinstance(message.author, discord.Member):
+            if any(role.id == 824513909129084938 for role in message.author.roles):
+                return
         self._cache[message.author.id] = self._cache.get(message.author.id, 0) + 1
 
     async def _flush_cache(self):
@@ -112,23 +115,30 @@ class Activity(commands.Cog):
         await self._flush_cache()
         
         async with self.db.execute(
-            "SELECT user_id, message_count FROM daily_activity ORDER BY message_count DESC LIMIT ?",
-            (config.ACTIVITY_TOP_N,),
+            "SELECT user_id, message_count FROM daily_activity ORDER BY message_count DESC LIMIT 2"
         ) as cur:
             winners = await cur.fetchall()
             
         from utils import add_unb_money
         payout_channel = self.bot.get_channel(config.PAYOUT_CHANNEL_ID)
+        
         if winners:
-            paid_users = []
-            for row in winners:
-                if await add_unb_money(self.bot, row['user_id'], config.ACTIVITY_WINNER_REWARD):
-                    paid_users.append(row['user_id'])
-                    log.info("Awarded %s to user %s via API", config.ACTIVITY_WINNER_REWARD, row["user_id"])
-            if payout_channel and paid_users:
-                mentions = " ".join(f"<@{uid}>" for uid in paid_users)
+            mentions = []
+            user_1 = winners[0]['user_id']
+            if await add_unb_money(self.bot, user_1, 300, target="bank"):
+                mentions.append(f"<@{user_1}> (300 coins)")
+                log.info("Awarded 300 to user %s via API into bank", user_1)
+            
+            if len(winners) > 1:
+                user_2 = winners[1]['user_id']
+                if await add_unb_money(self.bot, user_2, 200, target="bank"):
+                    mentions.append(f"<@{user_2}> (200 coins)")
+                    log.info("Awarded 200 to user %s via API into bank", user_2)
+                    
+            if payout_channel and mentions:
+                mentions_str = ", ".join(mentions)
                 try:
-                    await payout_channel.send(f"🎉 Midnight reset complete! Rewarded {mentions} with {config.ACTIVITY_WINNER_REWARD} coins each.")
+                    await payout_channel.send(f"🎉 Midnight reset complete! Deposited into bank for: {mentions_str}")
                 except discord.Forbidden:
                     pass
                 
