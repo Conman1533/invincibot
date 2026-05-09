@@ -53,6 +53,12 @@ CREATE TABLE IF NOT EXISTS daily_activity (
     user_id       INTEGER PRIMARY KEY,
     message_count INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+    user_id INTEGER PRIMARY KEY,
+    months_subscribed INTEGER NOT NULL DEFAULT 1,
+    last_rewarded_at TIMESTAMP
+);
 """
 
 

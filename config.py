@@ -53,6 +53,14 @@ ACTIVITY_TOP_N: int        = 2     # number of daily winners
 ACTIVITY_WINNER_REWARD: int = 500  # currency per winner
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  SUBSCRIPTION MODULE
+# ─────────────────────────────────────────────────────────────────────────────
+
+PREMIUM_ROLE_ID: int = 1262871932794179586
+SUBSCRIPTION_BASE_REWARD: int = 900
+SUBSCRIPTION_MULTIPLIER: int = 100
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  VOICE PATROL MODULE
 # ─────────────────────────────────────────────────────────────────────────────
 
