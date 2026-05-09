@@ -43,6 +43,7 @@ REPORT_EMOJI_NAME: str = "report"   # name of your custom :report: emoji
 RESOLVE_EMOJI: str     = "✅"
 DISMISS_EMOJI: str     = "❌"
 BOUNTY_AMOUNT: int     = 100        # currency awarded per reporter on resolution
+MOD_REWARD_AMOUNT: int = 50         # currency awarded to mod for resolving/dismissing
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  ACTIVITY MODULE

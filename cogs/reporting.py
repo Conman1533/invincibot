@@ -262,10 +262,16 @@ class Reporting(commands.Cog):
             if await add_unb_money(self.bot, row['user_id'], config.BOUNTY_AMOUNT):
                 paid_users.append(row['user_id'])
                 
-        if payout_channel and paid_users:
+        mod_paid = await add_unb_money(self.bot, payload.user_id, config.MOD_REWARD_AMOUNT)
+        
+        if payout_channel and (paid_users or mod_paid):
             mentions = " ".join(f"<@{uid}>" for uid in paid_users)
+            msg = f"✅ Paid {config.BOUNTY_AMOUNT} coins to {mentions}." if paid_users else "✅ Report resolved."
+            if mod_paid:
+                msg += f" Also rewarded mod <@{payload.user_id}> with {config.MOD_REWARD_AMOUNT} coins."
+            msg += " Make sure to deposit your coins with $dep all"
             try:
-                await payout_channel.send(f"✅ Paid {config.BOUNTY_AMOUNT} coins to {mentions}. Make sure to deposit your coins with $dep all")
+                await payout_channel.send(msg)
             except discord.Forbidden:
                 pass
         log.info("Report %s resolved; paid %s reporters via API.", report_id, len(paid_users))
@@ -303,6 +309,16 @@ class Reporting(commands.Cog):
             "UPDATE reports SET status = 'dismissed' WHERE report_id = ?", (report_id,)
         )
         await self.db.commit()
+        
+        from utils import add_unb_money
+        mod_paid = await add_unb_money(self.bot, payload.user_id, config.MOD_REWARD_AMOUNT)
+        if mod_paid:
+            payout_channel = self.bot.get_channel(config.PAYOUT_CHANNEL_ID)
+            if payout_channel:
+                try:
+                    await payout_channel.send(f"👮 Rewarded mod <@{payload.user_id}> with {config.MOD_REWARD_AMOUNT} coins for dismissing a report.")
+                except discord.Forbidden:
+                    pass
         
         log.info("Report %s dismissed.", report_id)
         
