@@ -62,6 +62,10 @@ class _CompatWaveSink(WaveSink):
     def _refresh_state(self, *args, **kwargs):
         pass
 
+    def is_opus(self) -> bool:
+        """WaveSink is a PCM/Wave sink, not Opus."""
+        return False
+
 
 class VoicePatrol(commands.Cog):
     """Real-time voice channel transcription backed by faster-whisper on CUDA."""
