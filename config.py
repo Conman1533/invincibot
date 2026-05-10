@@ -70,6 +70,9 @@ WHISPER_MODEL_SIZE: str    = "distil-large-v3"
 WHISPER_DEVICE: str        = "cuda"
 WHISPER_COMPUTE_TYPE: str  = "float16"
 
+# Channel where VoicePatrol posts join/leave/detection activity embeds
+VOICE_PATROL_LOG_CHANNEL_ID: int = 1349051248300658708
+
 BAD_WORDS: set[str] = {
     "squirrel",
 }

@@ -54,6 +54,30 @@ class VoicePatrol(commands.Cog):
         for task in self._recording_tasks.values():
             task.cancel()
 
+    async def _vp_log(
+        self,
+        title: str,
+        description: str,
+        color: discord.Color = discord.Color.blurple(),
+        *,
+        fields: list[tuple[str, str, bool]] | None = None,
+    ) -> None:
+        """Send a status embed to the VoicePatrol activity log channel."""
+        channel_id = getattr(config, "VOICE_PATROL_LOG_CHANNEL_ID", 0)
+        if not channel_id:
+            return
+        channel = self.bot.get_channel(channel_id)
+        if not channel:
+            return
+        embed = discord.Embed(title=title, description=description, color=color)
+        for name, value, inline in (fields or []):
+            embed.add_field(name=name, value=value, inline=inline)
+        embed.set_footer(text="VoicePatrol")
+        try:
+            await channel.send(embed=embed)
+        except discord.HTTPException as exc:
+            log.error("Failed to send VoicePatrol log embed: %s", exc)
+
     @commands.Cog.listener()
     async def on_ready(self):
         """On startup, join any voice channels that already have users in them."""
@@ -78,8 +102,18 @@ class VoicePatrol(commands.Cog):
                             self._recording_loop(vc, g.id)
                         )
                         self._recording_tasks[g.id] = task
+                        await self._vp_log(
+                            "🟢 Joined on Startup",
+                            f"Joined **{vc_channel.name}** — {len(non_bots)} user(s) already present.",
+                            discord.Color.green(),
+                        )
                     except Exception:
                         log.exception("on_ready: failed to join '%s'.", vc_channel.name)
+                        await self._vp_log(
+                            "🔴 Startup Join Failed",
+                            f"Could not join **{vc_channel.name}** — check bot permissions and logs.",
+                            discord.Color.red(),
+                        )
                     break  # only join one channel per guild
 
     @commands.Cog.listener()
@@ -117,6 +151,11 @@ class VoicePatrol(commands.Cog):
                 task.cancel()
             vc = None
             bot_connected = False
+            await self._vp_log(
+                "⚠️ Stale Connection Cleaned Up",
+                "A disconnected voice client was found and removed. The bot will rejoin on next user event.",
+                discord.Color.yellow(),
+            )
 
         # ── Join: user is in a channel and bot is not connected ───────────────
         # Use after.channel (broadly) so we catch: fresh joins, moves between
@@ -128,7 +167,8 @@ class VoicePatrol(commands.Cog):
                 vc = await after.channel.connect(self_deaf=False)
                 self._voice_clients[guild.id] = vc
                 # Warn if the channel uses DAVE E2EE (py-cord 2.8+)
-                if hasattr(vc, "is_dave_connection") and vc.is_dave_connection():
+                is_dave = hasattr(vc, "is_dave_connection") and vc.is_dave_connection()
+                if is_dave:
                     log.warning(
                         "Channel '%s' uses DAVE (E2EE). Voice reception is "
                         "experimental — audio may be empty until pycord#3139 lands.",
@@ -136,9 +176,23 @@ class VoicePatrol(commands.Cog):
                     )
                 task = self.bot.loop.create_task(self._recording_loop(vc, guild.id))
                 self._recording_tasks[guild.id] = task
+                await self._vp_log(
+                    "🎙️ Joined Voice Channel",
+                    f"Now monitoring **{after.channel.name}** — triggered by {member.mention}.",
+                    discord.Color.green(),
+                    fields=[
+                        ("DAVE (E2EE)", "⚠️ Active — audio may be limited" if is_dave else "✅ Not active", True),
+                        ("Model", getattr(config, "WHISPER_MODEL_SIZE", "?"), True),
+                    ],
+                )
             except Exception:
                 # log.exception captures the full traceback, not just the message
                 log.exception("Failed to connect to voice channel '%s'.", after.channel.name)
+                await self._vp_log(
+                    "🔴 Join Failed",
+                    f"Could not join **{after.channel.name}** — check bot permissions and logs.",
+                    discord.Color.red(),
+                )
                 return
 
         # ── Leave: the channel we're in just became empty ─────────────────────
@@ -146,11 +200,17 @@ class VoicePatrol(commands.Cog):
             non_bots = [m for m in vc.channel.members if not m.bot]
             if not non_bots:
                 log.info("Leaving '%s' because it's now empty.", vc.channel.name)
+                channel_name = vc.channel.name
                 task = self._recording_tasks.pop(guild.id, None)
                 if task:
                     task.cancel()
                 await vc.disconnect(force=True)
                 self._voice_clients.pop(guild.id, None)
+                await self._vp_log(
+                    "🔇 Left Voice Channel",
+                    f"**{channel_name}** is now empty — disconnected.",
+                    discord.Color.greyple(),
+                )
 
     async def _recording_loop(self, vc: discord.VoiceClient, guild_id: int):
         """10-second chunked recording loop.
@@ -239,20 +299,29 @@ class VoicePatrol(commands.Cog):
                 
         if found_bad_word:
             log.warning("Harmful speech detected from %s: %s", display, text)
-            
+
             # Auto Mute
             if member:
                 try:
                     await member.edit(mute=True, reason="VoicePatrol: Harmful speech detected.")
                 except discord.Forbidden:
                     log.error("Missing permissions to server-mute %s", display)
-            
-            # Send to log channel
-            if log_channel:
+
+            # Post to VoicePatrol activity log channel
+            await self._vp_log(
+                "🚨 Harmful Speech Detected",
+                f"**User:** {member.mention if member else display}\n**Transcription:** {text}",
+                discord.Color.red(),
+                fields=[("Action", "User has been server-muted", False)],
+            )
+
+            # Send evidence (audio clip) to the main log channel
+            evidence_channel = self.bot.get_channel(config.LOG_CHANNEL_ID)
+            if evidence_channel:
                 audio_file.seek(0)  # Reset pointer to upload file
                 df = discord.File(audio_file, filename=f"evidence_{user_id}.wav")
                 embed = discord.Embed(
-                    title="⚠️ Harmful Speech Detected", 
+                    title="⚠️ Harmful Speech — Audio Evidence",
                     description=f"**Transcription:** {text}",
                     color=discord.Color.red()
                 )
@@ -263,7 +332,7 @@ class VoicePatrol(commands.Cog):
                 )
                 embed.set_footer(text="User has been automatically server-muted.")
                 try:
-                    await log_channel.send(embed=embed, file=df)
+                    await evidence_channel.send(embed=embed, file=df)
                 except Exception as e:
                     log.error("Failed to upload evidence to log channel: %s", e)
 
