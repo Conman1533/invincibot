@@ -50,9 +50,13 @@ class _CompatWaveSink(WaveSink):
         super().__init__()
         log.debug("Created _CompatWaveSink instance")
         self.vc = vc
-        self.client = vc
         if not hasattr(self, "__sink_listeners__"):
             self.__sink_listeners__: dict = {}
+
+    @property
+    def client(self):
+        """Reference to the VoiceClient, required by py-cord 2.8rc2 PacketDecoder."""
+        return self.vc
 
     def walk_children(self):
         """Dummy method for py-cord 2.8rc2 compatibility."""
