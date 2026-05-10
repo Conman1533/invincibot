@@ -75,6 +75,25 @@ BAD_WORDS: set[str] = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  LINK BAN MODULE
+# ─────────────────────────────────────────────────────────────────────────────
+# Invite codes (lowercase) that trigger an instant ban when posted.
+# Add/remove codes here without touching the cog itself.
+
+BANNED_INVITE_CODES: set[str] = {
+    "crazyygirls",
+    "cherry-girls",
+    "honey-girl",
+    "zmPX5mEVW9".lower(),   # zmpx5mevw9
+    "naughty-girl",
+    "ninasvid",
+    "sexclub",
+    "sweetgirls",
+    "honeygirls",
+    "xQHpr8aq".lower(),     # xqhpr8aq
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  DASHBOARD
 # ─────────────────────────────────────────────────────────────────────────────
 
