@@ -38,6 +38,20 @@ def _transcribe_sync(model: "WhisperModel", audio_bytes: bytes) -> str:
     return text
 
 
+class _CompatWaveSink(WaveSink):
+    """WaveSink with py-cord 2.8rc2 compatibility patch.
+
+    start_recording in 2.8rc2 reads ``__sink_listeners__`` off the sink
+    before setting it, causing an AttributeError if the attribute doesn't
+    already exist.  We pre-initialise it here to an empty dict.
+    """
+
+    def __init__(self):
+        super().__init__()
+        if not hasattr(self, "__sink_listeners__"):
+            self.__sink_listeners__: dict = {}
+
+
 class VoicePatrol(commands.Cog):
     """Real-time voice channel transcription backed by faster-whisper on CUDA."""
 
@@ -215,14 +229,13 @@ class VoicePatrol(commands.Cog):
     async def _recording_loop(self, vc: discord.VoiceClient, guild_id: int):
         """10-second chunked recording loop.
 
-        py-cord 2.7+ changed start_recording's callback to accept only a single
-        ``exception`` argument — the sink is no longer passed in.  We close over
-        the local ``sink`` variable instead.  start/stop_recording also emit a
-        RuntimeWarning about DAVE; we suppress it to keep logs clean.
+        Errors are caught per-iteration so a single bad start_recording call
+        (e.g. __sink_listeners__ AttributeError in py-cord 2.8rc2) retries
+        after 5 s instead of killing the loop permanently.
         """
-        try:
-            while vc.is_connected():
-                sink = WaveSink()
+        while vc.is_connected():
+            try:
+                sink = _CompatWaveSink()
 
                 # py-cord >=2.7: callback is (exception,) — NOT (sink, *args).
                 # Capture `sink` via closure so _process_audio can read its data.
@@ -247,14 +260,19 @@ class VoicePatrol(commands.Cog):
                         warnings.simplefilter("ignore", RuntimeWarning)
                         vc.stop_recording()
 
-        except asyncio.CancelledError:
-            if vc.is_connected() and vc.is_recording():
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", RuntimeWarning)
-                    vc.stop_recording()
-            raise
-        except Exception as e:
-            log.error("Error in recording loop for guild %s: %s", guild_id, e)
+            except asyncio.CancelledError:
+                if vc.is_connected() and vc.is_recording():
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", RuntimeWarning)
+                        vc.stop_recording()
+                raise
+            except Exception as e:
+                log.error(
+                    "Recording iteration error in guild %s: %s — retrying in 5s.",
+                    guild_id, e,
+                )
+                await asyncio.sleep(5)
+
 
     async def _process_audio(self, sink: WaveSink, guild_id: int):
         if not sink.audio_data:
