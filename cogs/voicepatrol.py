@@ -58,21 +58,43 @@ class VoicePatrol(commands.Cog):
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if not getattr(config, "VOICE_PATROL_ENABLED", False):
             return
-            
+
         if member.bot:
             return
-            
+
+        # Ignore events from other guilds if GUILD_ID is configured
+        guild_id_filter = getattr(config, "GUILD_ID", 0)
+        if guild_id_filter and member.guild.id != guild_id_filter:
+            return
+
         guild = member.guild
+
+        # guild.voice_client can be a stale (disconnected) VoiceClient object
+        # after a crash/restart — always verify it's actually connected.
         vc = guild.voice_client
-        
-        # Someone joined a voice channel and we are not in one yet
-        if after.channel and not vc:
-            log.info("Auto-joining %s because %s joined.", after.channel.name, member)
+        bot_connected = vc is not None and vc.is_connected()
+
+        # Clean up stale voice client so the guild state is fresh
+        if vc is not None and not bot_connected:
+            log.warning("Stale voice client found for guild %s — cleaning up.", guild.id)
+            self._voice_clients.pop(guild.id, None)
+            task = self._recording_tasks.pop(guild.id, None)
+            if task:
+                task.cancel()
+            vc = None
+            bot_connected = False
+
+        # ── Join: a user entered a channel and the bot is not connected ───────
+        # Only fire on a real join (before.channel is None) to avoid triggering
+        # on mute/deafen/move events where after.channel is already set.
+        user_just_joined = after.channel is not None and before.channel is None
+        if user_just_joined and not bot_connected:
+            log.info("Auto-joining '%s' because %s joined.", after.channel.name, member)
             try:
-                # self_deaf=False is required so we can receive audio packets
+                # self_deaf=False is required so we can receive incoming audio
                 vc = await after.channel.connect(self_deaf=False)
                 self._voice_clients[guild.id] = vc
-                # Log a warning if this is a DAVE-encrypted channel (py-cord 2.8+)
+                # Warn if the channel uses DAVE E2EE (py-cord 2.8+)
                 if hasattr(vc, "is_dave_connection") and vc.is_dave_connection():
                     log.warning(
                         "Channel '%s' uses DAVE (E2EE). Voice reception is "
@@ -81,14 +103,16 @@ class VoicePatrol(commands.Cog):
                     )
                 task = self.bot.loop.create_task(self._recording_loop(vc, guild.id))
                 self._recording_tasks[guild.id] = task
-            except Exception as e:
-                log.error("Failed to connect to voice channel: %s", e)
-                
-        # Check if we should leave (everyone left the channel we are in)
-        if before.channel and vc and vc.channel == before.channel:
+            except Exception:
+                # log.exception captures the full traceback, not just the message
+                log.exception("Failed to connect to voice channel '%s'.", after.channel.name)
+                return
+
+        # ── Leave: the channel we're in just became empty ─────────────────────
+        if before.channel and bot_connected and vc and vc.channel == before.channel:
             non_bots = [m for m in vc.channel.members if not m.bot]
             if not non_bots:
-                log.info("Leaving %s because it's empty.", vc.channel.name)
+                log.info("Leaving '%s' because it's now empty.", vc.channel.name)
                 task = self._recording_tasks.pop(guild.id, None)
                 if task:
                     task.cancel()
