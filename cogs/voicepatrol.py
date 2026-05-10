@@ -1,6 +1,12 @@
 """
 cogs/voicepatrol.py — Real-time GPU voice transcription via faster-whisper.
 All IDs and tunable values are imported from config.py.
+
+NOTE on DAVE (Discord E2EE — enforced March 2026):
+  py-cord 2.7+ emits a RuntimeWarning when start/stop_recording is called in
+  DAVE-encrypted channels because voice reception is not yet fully patched
+  upstream (https://github.com/Pycord-Development/pycord/issues/3139).
+  We suppress those warnings and log our own message to keep logs readable.
 """
 
 from __future__ import annotations
@@ -9,9 +15,10 @@ import io
 import logging
 import tempfile
 import re
+import warnings
 from typing import TYPE_CHECKING
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord.sinks import WaveSink
 import config
 
@@ -62,8 +69,16 @@ class VoicePatrol(commands.Cog):
         if after.channel and not vc:
             log.info("Auto-joining %s because %s joined.", after.channel.name, member)
             try:
-                vc = await after.channel.connect()
+                # self_deaf=False is required so we can receive audio packets
+                vc = await after.channel.connect(self_deaf=False)
                 self._voice_clients[guild.id] = vc
+                # Log a warning if this is a DAVE-encrypted channel (py-cord 2.8+)
+                if hasattr(vc, "is_dave_connection") and vc.is_dave_connection():
+                    log.warning(
+                        "Channel '%s' uses DAVE (E2EE). Voice reception is "
+                        "experimental — audio may be empty until pycord#3139 lands.",
+                        after.channel.name,
+                    )
                 task = self.bot.loop.create_task(self._recording_loop(vc, guild.id))
                 self._recording_tasks[guild.id] = task
             except Exception as e:
@@ -81,24 +96,45 @@ class VoicePatrol(commands.Cog):
                 self._voice_clients.pop(guild.id, None)
 
     async def _recording_loop(self, vc: discord.VoiceClient, guild_id: int):
+        """10-second chunked recording loop.
+
+        py-cord 2.7+ changed start_recording's callback to accept only a single
+        ``exception`` argument — the sink is no longer passed in.  We close over
+        the local ``sink`` variable instead.  start/stop_recording also emit a
+        RuntimeWarning about DAVE; we suppress it to keep logs clean.
+        """
         try:
             while vc.is_connected():
                 sink = WaveSink()
-                
-                # Callback to process audio chunks
-                def finished_callback(sink, *args):
-                    asyncio.run_coroutine_threadsafe(self._process_audio(sink, guild_id), self.bot.loop)
-                    
-                vc.start_recording(sink, finished_callback)
-                
-                # Record for 10 seconds, then stop and trigger callback
+
+                # py-cord >=2.7: callback is (exception,) — NOT (sink, *args).
+                # Capture `sink` via closure so _process_audio can read its data.
+                def finished_callback(exception: Exception | None) -> None:
+                    if exception:
+                        log.error(
+                            "Recording error in guild %s: %s", guild_id, exception
+                        )
+                    asyncio.run_coroutine_threadsafe(
+                        self._process_audio(sink, guild_id), self.bot.loop
+                    )
+
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", RuntimeWarning)
+                    vc.start_recording(sink, finished_callback)
+
+                # Record for 10 seconds, then stop and trigger the callback
                 await asyncio.sleep(10)
-                
-                if vc.is_connected():
-                    vc.stop_recording()
+
+                if vc.is_connected() and vc.is_recording():
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", RuntimeWarning)
+                        vc.stop_recording()
+
         except asyncio.CancelledError:
-            if vc.is_connected():
-                vc.stop_recording()
+            if vc.is_connected() and vc.is_recording():
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", RuntimeWarning)
+                    vc.stop_recording()
             raise
         except Exception as e:
             log.error("Error in recording loop for guild %s: %s", guild_id, e)
@@ -165,7 +201,8 @@ class VoicePatrol(commands.Cog):
                 )
                 embed.set_author(
                     name=display,
-                    icon_url=member.display_avatar.url if member else discord.Embed.Empty,
+                    # py-cord 2.8: Embed.Empty removed — None is the safe default
+                    icon_url=member.display_avatar.url if member else None,
                 )
                 embed.set_footer(text="User has been automatically server-muted.")
                 try:

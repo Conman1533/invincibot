@@ -66,7 +66,7 @@ SUBSCRIPTION_MULTIPLIER: int = 100
 
 VOICE_PATROL_ENABLED: bool = True
 
-WHISPER_MODEL_SIZE: str    = "medium.en"
+WHISPER_MODEL_SIZE: str    = "distil-large-v3"
 WHISPER_DEVICE: str        = "cuda"
 WHISPER_COMPUTE_TYPE: str  = "float16"
 

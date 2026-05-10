@@ -1,6 +1,6 @@
 # ── Discord ───────────────────────────────────────────────────────────────────
 py-cord[voice]>=2.8.0
-davey-python>=1.0.0
+# Note: DAVE (E2EE) support is bundled in py-cord[voice] via its 'davey' dependency
 
 # ── Database ──────────────────────────────────────────────────────────────────
 aiosqlite>=0.20.0
