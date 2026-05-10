@@ -74,8 +74,18 @@ class _CompatWaveSink(WaveSink):
 
     def write(self, data, user):
         """Extract raw bytes from py-cord 2.8rc2's VoiceData objects."""
-        if hasattr(data, "data"):
-            data = data.data
+        if not isinstance(data, (bytes, bytearray)):
+            # Try various common attribute names for the raw audio payload
+            for attr in ("data", "audio", "pcm", "pcm_data"):
+                if hasattr(data, attr):
+                    val = getattr(data, attr)
+                    if isinstance(val, (bytes, bytearray)):
+                        data = val
+                        break
+            
+            if not isinstance(data, (bytes, bytearray)):
+                log.debug("write: received non-bytes object of type %s: %s", type(data), dir(data))
+
         return super().write(data, user)
 
 
