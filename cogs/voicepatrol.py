@@ -55,6 +55,34 @@ class VoicePatrol(commands.Cog):
             task.cancel()
 
     @commands.Cog.listener()
+    async def on_ready(self):
+        """On startup, join any voice channels that already have users in them."""
+        if not getattr(config, "VOICE_PATROL_ENABLED", False):
+            return
+        guild_id_filter = getattr(config, "GUILD_ID", 0)
+        guild = self.bot.get_guild(guild_id_filter) if guild_id_filter else None
+        guilds = [guild] if guild else self.bot.guilds
+        for g in guilds:
+            if g.voice_client and g.voice_client.is_connected():
+                continue  # already in a channel in this guild
+            for vc_channel in g.voice_channels:
+                non_bots = [m for m in vc_channel.members if not m.bot]
+                if non_bots:
+                    log.info(
+                        "on_ready: users found in '%s' — joining.", vc_channel.name
+                    )
+                    try:
+                        vc = await vc_channel.connect(self_deaf=False)
+                        self._voice_clients[g.id] = vc
+                        task = self.bot.loop.create_task(
+                            self._recording_loop(vc, g.id)
+                        )
+                        self._recording_tasks[g.id] = task
+                    except Exception:
+                        log.exception("on_ready: failed to join '%s'.", vc_channel.name)
+                    break  # only join one channel per guild
+
+    @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if not getattr(config, "VOICE_PATROL_ENABLED", False):
             return
@@ -68,6 +96,12 @@ class VoicePatrol(commands.Cog):
             return
 
         guild = member.guild
+        log.debug(
+            "on_voice_state_update: %s | before=%s after=%s",
+            member,
+            before.channel.name if before.channel else None,
+            after.channel.name if after.channel else None,
+        )
 
         # guild.voice_client can be a stale (disconnected) VoiceClient object
         # after a crash/restart — always verify it's actually connected.
@@ -84,12 +118,11 @@ class VoicePatrol(commands.Cog):
             vc = None
             bot_connected = False
 
-        # ── Join: a user entered a channel and the bot is not connected ───────
-        # Only fire on a real join (before.channel is None) to avoid triggering
-        # on mute/deafen/move events where after.channel is already set.
-        user_just_joined = after.channel is not None and before.channel is None
-        if user_just_joined and not bot_connected:
-            log.info("Auto-joining '%s' because %s joined.", after.channel.name, member)
+        # ── Join: user is in a channel and bot is not connected ───────────────
+        # Use after.channel (broadly) so we catch: fresh joins, moves between
+        # channels, and server-deafen events where a user is still present.
+        if after.channel is not None and not bot_connected:
+            log.info("Auto-joining '%s' because %s is there.", after.channel.name, member)
             try:
                 # self_deaf=False is required so we can receive incoming audio
                 vc = await after.channel.connect(self_deaf=False)
