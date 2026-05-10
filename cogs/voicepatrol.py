@@ -96,7 +96,7 @@ class VoicePatrol(commands.Cog):
                         "on_ready: users found in '%s' — joining.", vc_channel.name
                     )
                     try:
-                        vc = await vc_channel.connect(self_deaf=False)
+                        vc = await vc_channel.connect()
                         self._voice_clients[g.id] = vc
                         task = self.bot.loop.create_task(
                             self._recording_loop(vc, g.id)
@@ -164,7 +164,7 @@ class VoicePatrol(commands.Cog):
             log.info("Auto-joining '%s' because %s is there.", after.channel.name, member)
             try:
                 # self_deaf=False is required so we can receive incoming audio
-                vc = await after.channel.connect(self_deaf=False)
+                vc = await after.channel.connect()
                 self._voice_clients[guild.id] = vc
                 # Warn if the channel uses DAVE E2EE (py-cord 2.8+)
                 is_dave = hasattr(vc, "is_dave_connection") and vc.is_dave_connection()
