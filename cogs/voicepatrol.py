@@ -72,6 +72,12 @@ class _CompatWaveSink(WaveSink):
         """WaveSink is a PCM/Wave sink, not Opus."""
         return False
 
+    def write(self, data, user):
+        """Extract raw bytes from py-cord 2.8rc2's VoiceData objects."""
+        if hasattr(data, "data"):
+            data = data.data
+        return super().write(data, user)
+
 
 class VoicePatrol(commands.Cog):
     """Real-time voice channel transcription backed by faster-whisper on CUDA."""
