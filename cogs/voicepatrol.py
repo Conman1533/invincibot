@@ -51,6 +51,10 @@ class _CompatWaveSink(WaveSink):
         if not hasattr(self, "__sink_listeners__"):
             self.__sink_listeners__: dict = {}
 
+    def walk_children(self):
+        """Dummy method for py-cord 2.8rc2 compatibility."""
+        yield from []
+
 
 class VoicePatrol(commands.Cog):
     """Real-time voice channel transcription backed by faster-whisper on CUDA."""
