@@ -97,33 +97,24 @@ class VoicePatrol(commands.Cog):
         self._voice_clients: dict[int, discord.VoiceClient] = {}
         self._recording_tasks: dict[int, asyncio.Task] = {}
 
-        # Hail Mary: Attempt to downgrade DAVE to version 0 to bypass E2EE decryption bugs
-        # This monkeypatches the internal gateway identification to tell Discord we don't support DAVE.
+        # Final Hail Mary: Intercept the JSON payload right before it hits the socket
+        # This is more robust than patching the payload generator.
         try:
             from discord.gateway import DiscordVoiceWebSocket
-            orig_identify = DiscordVoiceWebSocket.identify
+            orig_send_as_json = DiscordVoiceWebSocket.send_as_json
 
-            async def patched_identify(self):
-                await orig_identify(self)
-                # The identify payload is sent in the first message. 
-                # We can't easily intercept the async call, but we can try to 
-                # modify the protocol version if the library allows.
-                # Actually, py-cord 2.8rc2 likely has a specific method for this.
-                pass
-            
-            # Better approach: Monkeypatch the VoiceClient to not request DAVE
-            from discord.voice_client import VoiceClient
-            if hasattr(VoiceClient, "_get_identify_payload"):
-                orig_payload = VoiceClient._get_identify_payload
-                def patched_payload(self):
-                    p = orig_payload(self)
-                    if "max_dave_protocol_version" in p:
-                        p["max_dave_protocol_version"] = 0
-                    return p
-                VoiceClient._get_identify_payload = patched_payload
-                log.info("Monkeypatched VoiceClient to downgrade DAVE protocol to 0.")
+            async def patched_send_as_json(self, data):
+                if isinstance(data, dict) and data.get("op") == 0:  # Identify
+                    d = data.get("d", {})
+                    if "max_dave_protocol_version" in d:
+                        d["max_dave_protocol_version"] = 0
+                        log.info("Intercepted Voice Identify: forced DAVE version 0.")
+                return await orig_send_as_json(self, data)
+
+            DiscordVoiceWebSocket.send_as_json = patched_send_as_json
+            log.info("DAVE downgrade monkeypatch applied to DiscordVoiceWebSocket.")
         except Exception as e:
-            log.debug("Failed to monkeypatch DAVE version: %s", e)
+            log.error("Failed to monkeypatch VoiceWebSocket: %s", e)
 
     @property
     def model(self) -> "WhisperModel":
