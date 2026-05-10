@@ -46,9 +46,11 @@ class _CompatWaveSink(WaveSink):
     already exist.  We pre-initialise it here to an empty dict.
     """
 
-    def __init__(self):
+    def __init__(self, vc: discord.VoiceClient | None = None):
         super().__init__()
         log.debug("Created _CompatWaveSink instance")
+        self.vc = vc
+        self.client = vc
         if not hasattr(self, "__sink_listeners__"):
             self.__sink_listeners__: dict = {}
 
@@ -250,7 +252,7 @@ class VoicePatrol(commands.Cog):
         """
         while vc.is_connected():
             try:
-                sink = _CompatWaveSink()
+                sink = _CompatWaveSink(vc)
 
                 # py-cord >=2.7: callback is (exception,) — NOT (sink, *args).
                 # Capture `sink` via closure so _process_audio can read its data.
