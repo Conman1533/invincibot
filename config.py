@@ -64,7 +64,7 @@ SUBSCRIPTION_MULTIPLIER: int = 100
 #  VOICE PATROL MODULE
 # ─────────────────────────────────────────────────────────────────────────────
 
-VOICE_PATROL_ENABLED: bool = True
+VOICE_PATROL_ENABLED: bool = False
 
 WHISPER_MODEL_SIZE: str    = "distil-large-v3"
 WHISPER_DEVICE: str        = "cuda"
