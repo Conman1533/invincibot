@@ -113,8 +113,22 @@ class VoicePatrol(commands.Cog):
 
             DiscordVoiceWebSocket.send_as_json = patched_send_as_json
             log.info("DAVE downgrade monkeypatch applied to DiscordVoiceWebSocket.")
+
+            # New: Patch Opus Decoder to ignore corrupted stream errors (DAVE noise)
+            from discord.opus import Decoder, OpusError
+            orig_decode = Decoder.decode
+
+            def patched_decode(self, data, fec=False):
+                try:
+                    return orig_decode(self, data, fec)
+                except OpusError:
+                    # Return 20ms of silence (48000Hz * 0.02s * 2 channels * 2 bytes = 3840 bytes)
+                    return b"\x00" * 3840
+
+            Decoder.decode = patched_decode
+            log.info("Opus Decoder patched to handle corrupted streams gracefully.")
         except Exception as e:
-            log.error("Failed to monkeypatch VoiceWebSocket: %s", e)
+            log.error("Failed to monkeypatch Voice internals: %s", e)
 
     @property
     def model(self) -> "WhisperModel":
