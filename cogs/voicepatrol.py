@@ -48,12 +48,19 @@ class _CompatWaveSink(WaveSink):
 
     def __init__(self):
         super().__init__()
+        log.debug("Created _CompatWaveSink instance")
         if not hasattr(self, "__sink_listeners__"):
             self.__sink_listeners__: dict = {}
 
     def walk_children(self):
         """Dummy method for py-cord 2.8rc2 compatibility."""
         yield from []
+
+    def to_component_dict(self):
+        return {}
+
+    def _refresh_state(self, *args, **kwargs):
+        pass
 
 
 class VoicePatrol(commands.Cog):
